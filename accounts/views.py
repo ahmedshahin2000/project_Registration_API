@@ -6,25 +6,55 @@ from rest_framework.views import APIView
 from .serializers import ClientSignupSerializer, LoginSerializer
 # from .permissions import IsPatientUser, IsDoctorUser
 
+from rest_framework.authtoken.models import Token
+from django.contrib.auth import authenticate
+
 
 class ClientSignupView(generics.GenericAPIView):
     serializer_class = ClientSignupSerializer
 
+    # def post(self, request, *args, **kwargs):
+    #         data = {}
+    #         serializer = self.get_serializer(data=request.data)
+    #         if serializer.is_valid():
+    #             user = serializer.save()
+    #             data['status'] = True
+    #             data.update({"message": "Registration done successfully",
+    #                 "user": serializer.data,
+    #                 #"token": Token.objects.get(user=user).key,
+    #             })
+    #             return Response(data)
+    #         data['status'] = False
+    #         data.update(serializer.errors)
+    #         return Response({"message":"A user with that email already exists."
+    #                         ,"user":data})
     def post(self, request, *args, **kwargs):
-            data = {}
-            serializer = self.get_serializer(data=request.data)
-            if serializer.is_valid():
-                user = serializer.save()
-                data['status'] = True
-                data.update({"message": "Registration done successfully",
-                    "user": serializer.data,
-                    #"token": Token.objects.get(user=user).key,
-                })
-                return Response(data)
-            data['status'] = False
-            data.update(serializer.errors)
-            return Response({"message":"A user with that email already exists."
-                            ,"user":data})
+        print(f'\n{request.data}')
+        context = {}
+        email = request.data.get('email')
+        password = request.data.get('password')
+        account = authenticate(email=email, password=password)
+        if account:
+            try:
+                token = Token.objects.get(user=account)
+            except Token.DoesNotExist:
+                token = Token.objects.create(user=account)
+            context['response'] = 'success'
+            context['pk'] = account.pk
+            context['email'] = email.lower()
+            context['token'] = token.key
+            context['is_verified'] = account.verified
+            context['is_company'] = account.is_company
+            context['firstname'] = account.firstname
+            context['lastname'] = account.lastname
+            #print(account)
+            #print(context)
+
+            return Response(data=context)
+        context['response'] = 'Error'
+        context['error_message'] = 'Invalid credentials'
+        return Response(data=context)
+
 
 
 class CustomAuthToken(ObtainAuthToken):
